@@ -80,68 +80,82 @@
   <script>
     const statusText = document.getElementById("status");
     const mouth = document.getElementById("mouth");
+    let isActivated = false;
 
-    // ✅ Setup speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = "en-US";
 
-    // ✅ Speech synthesis
+    // 🔊 Speak in Hindi using available voices
     const speak = (text) => {
-      let utter = new SpeechSynthesisUtterance(text);
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "hi-IN"; // Hindi voice
       utter.pitch = 1;
       utter.rate = 1;
+
+      // Try to use a Hindi voice if available
+      const voices = speechSynthesis.getVoices();
+      const hindiVoice = voices.find(voice => voice.lang === "hi-IN" || voice.name.toLowerCase().includes("hindi"));
+      if (hindiVoice) {
+        utter.voice = hindiVoice;
+      }
+
       utter.onstart = () => { mouth.style.display = "block"; };
       utter.onend = () => { mouth.style.display = "none"; };
       speechSynthesis.speak(utter);
     };
 
-    // ✅ Handle voice commands
+    // 🧠 Assistant commands and identity
     function handleCommand(command) {
       if (command.includes("joke")) {
         const jokes = [
-          "Why don’t skeletons fight each other? Because they don’t have the guts.",
-          "I would tell you a ghost joke, but you wouldn’t stand a ghost of a chance.",
-          "Why did the computer go to therapy? Because it had too many bytes!"
+          "एक कंकाल पार्टी में क्यों नहीं गया? क्योंकि उसके पास दिल नहीं था!",
+          "कंप्यूटर डॉक्टर के पास क्यों गया? क्योंकि उसे बहुत सारे बाइट्स हो रहे थे!",
+          "भूत को नौकरी क्यों नहीं मिली? क्योंकि उसका अनुभव पारदर्शी था!"
         ];
         speak(jokes[Math.floor(Math.random() * jokes.length)]);
+      } else if (command.includes("what is your name") || command.includes("your name")) {
+        speak("मेरा नाम अराइज़ है। मैं एक वॉइस असिस्टेंट हूँ।");
+      } else if (command.includes("who made you") || command.includes("who created you")) {
+        speak("मुझे एक डिवेलपर ने बनाया है, जो बहुत स्मार्ट है।");
+      } else if (command.includes("what can you do") || command.includes("about yourself")) {
+        speak("मैं आपकी आवाज़ सुन सकता हूँ, आपको जोक्स सुना सकता हूँ, और जानकारी भी दे सकता हूँ।");
       } else if (command.includes("who is") || command.includes("what is")) {
         let query = command.replace("who is", "").replace("what is", "").trim();
-
         if (!query || query.length < 2) {
-          speak("Please be more specific.");
+          speak("कृपया थोड़ा और स्पष्ट बोलें।");
           return;
         }
-
         statusText.innerText = "Searching Wikipedia for " + query;
-
         fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`)
           .then(res => res.json())
           .then(data => {
             if (data.extract) {
               speak(data.extract);
             } else {
-              speak("Sorry, I couldn't find that.");
+              speak("माफ़ कीजिए, मुझे जानकारी नहीं मिली।");
             }
           })
-          .catch(() => speak("Error fetching information."));
+          .catch(() => speak("कुछ गड़बड़ हो गई।"));
       } else {
-        speak("I did not understand. Please ask again.");
+        speak("मैं समझ नहीं पाया। कृपया दोबारा बोलें।");
       }
     }
 
-    // ✅ Handle speech recognition result
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
       console.log("Heard:", transcript);
 
-      if (transcript.includes("arise")) {
-        statusText.innerText = "Activated 👻 Ask me anything...";
-        speak("I am here. Ask me anything.");
-      } else {
+      if (!isActivated && transcript.includes("arise")) {
+        isActivated = true;
+        statusText.innerText = "Activated 👻 Waiting for your command...";
+        speak("मैं यहाँ हूँ। आप क्या जानना चाहते हैं?");
+      } else if (isActivated) {
         handleCommand(transcript);
+        isActivated = false;
+        statusText.innerText = "Say 'ARISE' to activate again...";
       }
     };
 
@@ -150,11 +164,10 @@
       console.error(e);
     };
 
-    // ✅ Securely request microphone permission and start recognition
     function startAssistant() {
-      if (window.isSecureContext === false) {
-        alert("⚠️ This feature only works on HTTPS or localhost.");
-        statusText.innerText = "Please use HTTPS or localhost.";
+      if (!window.isSecureContext) {
+        alert("⚠️ कृपया HTTPS या localhost से इस पेज को खोलें।");
+        statusText.innerText = "HTTPS या localhost आवश्यक है।";
         return;
       }
 
@@ -166,9 +179,14 @@
         .catch((err) => {
           console.error("Microphone access denied:", err);
           statusText.innerText = "Microphone access denied.";
-          speak("I need access to your microphone to function.");
+          speak("मुझे माइक की अनुमति चाहिए।");
         });
     }
+
+    // 🟡 Load voices early to avoid delay
+    window.speechSynthesis.onvoiceschanged = () => {
+      speechSynthesis.getVoices(); // preload voices
+    };
   </script>
 </body>
 </html>
