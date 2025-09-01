@@ -2,85 +2,173 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MediaPipe Hands Skeleton Tracking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ARISE - Voice Assistant</title>
   <style>
     body {
+      background: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
       margin: 0;
-      overflow: hidden;
-      background: #000;
+      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      color: white;
-      font-family: Arial, sans-serif;
+      flex-direction: column;
     }
-    video, canvas {
+    .skull {
+      font-size: 150px;
+      position: relative;
+    }
+    .eyes {
       position: absolute;
-      top: 50%;
+      top: 35px;
       left: 50%;
-      transform: translate(-50%, -50%);
-      border-radius: 12px;
-      max-width: 640px;
-      max-height: 480px;
-      box-shadow: 0 0 20px lime;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 40px;
+    }
+    .eye {
+      width: 25px;
+      height: 25px;
+      background: red;
+      border-radius: 50%;
+      box-shadow: 0 0 20px red;
+    }
+    .mouth {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 20px;
+      background: white;
+      border-radius: 5px;
+      display: none;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 20px;
+      color: lime;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: lime;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
+  <div class="skull">
+    💀
+    <div class="eyes">
+      <div class="eye" id="eye1"></div>
+      <div class="eye" id="eye2"></div>
+    </div>
+    <div class="mouth" id="mouth"></div>
+  </div>
 
-  <!-- MediaPipe scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <div id="status">Say "ARISE" to activate...</div>
+  <button onclick="startAssistant()">Start Listening</button>
 
   <script>
-    const videoElement = document.getElementById('video');
-    const canvasElement = document.getElementById('canvas');
-    const ctx = canvasElement.getContext('2d');
+    const statusText = document.getElementById("status");
+    const mouth = document.getElementById("mouth");
 
-    // Initialize MediaPipe Hands with correct locateFile to avoid 404
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`
-    });
+    // ✅ Setup speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
 
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.5,
-    });
+    // ✅ Speech synthesis
+    const speak = (text) => {
+      let utter = new SpeechSynthesisUtterance(text);
+      utter.pitch = 1;
+      utter.rate = 1;
+      utter.onstart = () => { mouth.style.display = "block"; };
+      utter.onend = () => { mouth.style.display = "none"; };
+      speechSynthesis.speak(utter);
+    };
 
-    hands.onResults(results => {
-      // Resize canvas to match video size
-      canvasElement.width = videoElement.videoWidth;
-      canvasElement.height = videoElement.videoHeight;
+    // ✅ Handle voice commands
+    function handleCommand(command) {
+      if (command.includes("joke")) {
+        const jokes = [
+          "Why don’t skeletons fight each other? Because they don’t have the guts.",
+          "I would tell you a ghost joke, but you wouldn’t stand a ghost of a chance.",
+          "Why did the computer go to therapy? Because it had too many bytes!"
+        ];
+        speak(jokes[Math.floor(Math.random() * jokes.length)]);
+      } else if (command.includes("who is") || command.includes("what is")) {
+        let query = command.replace("who is", "").replace("what is", "").trim();
 
-      // Clear canvas and draw the camera image
-      ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      ctx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-      // If hand landmarks detected, draw skeleton
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        for (const landmarks of results.multiHandLandmarks) {
-          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: 'lime', lineWidth: 4});
-          drawLandmarks(ctx, landmarks, {color: 'red', lineWidth: 2});
+        if (!query || query.length < 2) {
+          speak("Please be more specific.");
+          return;
         }
+
+        statusText.innerText = "Searching Wikipedia for " + query;
+
+        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.extract) {
+              speak(data.extract);
+            } else {
+              speak("Sorry, I couldn't find that.");
+            }
+          })
+          .catch(() => speak("Error fetching information."));
+      } else {
+        speak("I did not understand. Please ask again.");
       }
-    });
+    }
 
-    // Setup camera
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await hands.send({image: videoElement});
-      },
-      width: 640,
-      height: 480
-    });
+    // ✅ Handle speech recognition result
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+      console.log("Heard:", transcript);
 
-    camera.start();
+      if (transcript.includes("arise")) {
+        statusText.innerText = "Activated 👻 Ask me anything...";
+        speak("I am here. Ask me anything.");
+      } else {
+        handleCommand(transcript);
+      }
+    };
+
+    recognition.onerror = (e) => {
+      statusText.innerText = "Recognition Error: " + e.error;
+      console.error(e);
+    };
+
+    // ✅ Securely request microphone permission and start recognition
+    function startAssistant() {
+      if (window.isSecureContext === false) {
+        alert("⚠️ This feature only works on HTTPS or localhost.");
+        statusText.innerText = "Please use HTTPS or localhost.";
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+          recognition.start();
+          statusText.innerText = "Listening... Say 'ARISE'";
+        })
+        .catch((err) => {
+          console.error("Microphone access denied:", err);
+          statusText.innerText = "Microphone access denied.";
+          speak("I need access to your microphone to function.");
+        });
+    }
   </script>
 </body>
 </html>
