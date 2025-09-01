@@ -35,6 +35,11 @@
       background: red;
       border-radius: 50%;
       box-shadow: 0 0 20px red;
+      animation: blink 5s infinite;
+    }
+    @keyframes blink {
+      0%, 90%, 100% { height: 25px; }
+      95% { height: 5px; }
     }
     .mouth {
       position: absolute;
@@ -62,6 +67,9 @@
       font-weight: bold;
       cursor: pointer;
     }
+    .speaking {
+      text-shadow: 0 0 20px red, 0 0 40px red;
+    }
   </style>
 </head>
 <body>
@@ -80,34 +88,45 @@
   <script>
     const statusText = document.getElementById("status");
     const mouth = document.getElementById("mouth");
+    const skull = document.querySelector(".skull");
     let isActivated = false;
 
+    // 🎤 Speech Recognition setup
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = "en-US";
 
-    // 🔊 Speak in Hindi using available voices
-    const speak = (text) => {
+    // 🎙️ Speech Synthesis setup
+    let availableVoices = [];
+    window.speechSynthesis.onvoiceschanged = () => {
+      availableVoices = speechSynthesis.getVoices();
+    };
+
+    function speak(text) {
+      speechSynthesis.cancel(); // prevent overlap
       const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "hi-IN"; // Hindi voice
+      utter.lang = "hi-IN";
       utter.pitch = 1;
       utter.rate = 1;
 
-      // Try to use a Hindi voice if available
-      const voices = speechSynthesis.getVoices();
-      const hindiVoice = voices.find(voice => voice.lang === "hi-IN" || voice.name.toLowerCase().includes("hindi"));
-      if (hindiVoice) {
-        utter.voice = hindiVoice;
-      }
+      const hindiVoice = availableVoices.find(v => v.lang === "hi-IN" || v.name.toLowerCase().includes("hindi"));
+      if (hindiVoice) utter.voice = hindiVoice;
 
-      utter.onstart = () => { mouth.style.display = "block"; };
-      utter.onend = () => { mouth.style.display = "none"; };
+      utter.onstart = () => { 
+        mouth.style.display = "block"; 
+        skull.classList.add("speaking"); 
+      };
+      utter.onend = () => { 
+        mouth.style.display = "none"; 
+        skull.classList.remove("speaking"); 
+      };
+
       speechSynthesis.speak(utter);
-    };
+    }
 
-    // 🧠 Assistant commands and identity
+    // 🧠 Handle Commands
     function handleCommand(command) {
       if (command.includes("joke")) {
         const jokes = [
@@ -116,20 +135,28 @@
           "भूत को नौकरी क्यों नहीं मिली? क्योंकि उसका अनुभव पारदर्शी था!"
         ];
         speak(jokes[Math.floor(Math.random() * jokes.length)]);
-      } else if (command.includes("what is your name") || command.includes("your name")) {
+      } 
+      else if (command.match(/your name|what is your name/)) {
         speak("मेरा नाम अराइज़ है। मैं एक वॉइस असिस्टेंट हूँ।");
-      } else if (command.includes("who made you") || command.includes("who created you")) {
+      } 
+      else if (command.match(/who made|created you/)) {
         speak("मुझे एक डिवेलपर ने बनाया है, जो बहुत स्मार्ट है।");
-      } else if (command.includes("what can you do") || command.includes("about yourself")) {
+      } 
+      else if (command.match(/what can you do|about yourself/)) {
         speak("मैं आपकी आवाज़ सुन सकता हूँ, आपको जोक्स सुना सकता हूँ, और जानकारी भी दे सकता हूँ।");
-      } else if (command.includes("who is") || command.includes("what is")) {
+      } 
+      else if (command.match(/time|samay/)) {
+        const now = new Date();
+        speak(`अभी समय है ${now.getHours()} बजकर ${now.getMinutes()} मिनट।`);
+      }
+      else if (command.match(/who is|what is/)) {
         let query = command.replace("who is", "").replace("what is", "").trim();
         if (!query || query.length < 2) {
           speak("कृपया थोड़ा और स्पष्ट बोलें।");
           return;
         }
         statusText.innerText = "Searching Wikipedia for " + query;
-        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`)
+        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query.replace(/ /g, "_"))}`)
           .then(res => res.json())
           .then(data => {
             if (data.extract) {
@@ -139,11 +166,13 @@
             }
           })
           .catch(() => speak("कुछ गड़बड़ हो गई।"));
-      } else {
+      } 
+      else {
         speak("मैं समझ नहीं पाया। कृपया दोबारा बोलें।");
       }
     }
 
+    // 🎧 Recognition Events
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
       console.log("Heard:", transcript);
@@ -164,6 +193,11 @@
       console.error(e);
     };
 
+    recognition.onend = () => {
+      // Restart only if still active
+      if (isActivated) recognition.start();
+    };
+
     function startAssistant() {
       if (!window.isSecureContext) {
         alert("⚠️ कृपया HTTPS या localhost से इस पेज को खोलें।");
@@ -182,11 +216,6 @@
           speak("मुझे माइक की अनुमति चाहिए।");
         });
     }
-
-    // 🟡 Load voices early to avoid delay
-    window.speechSynthesis.onvoiceschanged = () => {
-      speechSynthesis.getVoices(); // preload voices
-    };
   </script>
 </body>
 </html>
