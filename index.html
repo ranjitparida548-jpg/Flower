@@ -1,221 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ARISE - Voice Assistant</title>
+  <meta charset="UTF-8">
+  <title>ARCHI</title>
   <style>
     body {
-      background: black;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      height: 100vh;
       display: flex;
-      justify-content: center;
-      align-items: center;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 20px;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
     }
-    .skull {
-      font-size: 150px;
-      position: relative;
+    .middle-finger {
+      font-size: 80px;
+      animation: bounce 1s infinite;
     }
-    .eyes {
-      position: absolute;
-      top: 35px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 40px;
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
     }
-    .eye {
-      width: 25px;
-      height: 25px;
-      background: red;
-      border-radius: 50%;
-      box-shadow: 0 0 20px red;
-      animation: blink 5s infinite;
-    }
-    @keyframes blink {
-      0%, 90%, 100% { height: 25px; }
-      95% { height: 5px; }
-    }
-    .mouth {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 60px;
-      height: 20px;
-      background: white;
-      border-radius: 5px;
-      display: none;
-    }
-    #status {
-      margin-top: 20px;
-      font-size: 20px;
-      color: lime;
-    }
-    button {
-      margin-top: 20px;
+    .click-button {
       padding: 10px 20px;
+      font-size: 20px;
       border: none;
-      border-radius: 8px;
-      background: lime;
-      color: black;
-      font-weight: bold;
+      background: red;
+      color: white;
+      border-radius: 10px;
       cursor: pointer;
     }
-    .speaking {
-      text-shadow: 0 0 20px red, 0 0 40px red;
+    .click-button:hover {
+      background: darkred;
+    }
+    .reveal-text {
+      font-size: 28px;
+      font-weight: bold;
+      color: yellow;
     }
   </style>
 </head>
 <body>
-  <div class="skull">
-    💀
-    <div class="eyes">
-      <div class="eye" id="eye1"></div>
-      <div class="eye" id="eye2"></div>
-    </div>
-    <div class="mouth" id="mouth"></div>
-  </div>
-
-  <div id="status">Say "ARISE" to activate...</div>
-  <button onclick="startAssistant()">Start Listening</button>
+  <div class="middle-finger">🖕</div>
+  <h1>ARCHI</h1>
+  <button id="btn" class="click-button">Click Me</button>
+  <div id="reveal" class="reveal-text" style="display:none;">PATHA KAR MAGHIA</div>
 
   <script>
-    const statusText = document.getElementById("status");
-    const mouth = document.getElementById("mouth");
-    const skull = document.querySelector(".skull");
-    let isActivated = false;
-
-    // 🎤 Speech Recognition setup
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-
-    // 🎙️ Speech Synthesis setup
-    let availableVoices = [];
-    window.speechSynthesis.onvoiceschanged = () => {
-      availableVoices = speechSynthesis.getVoices();
-    };
-
-    function speak(text) {
-      speechSynthesis.cancel(); // prevent overlap
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "hi-IN";
-      utter.pitch = 1;
-      utter.rate = 1;
-
-      const hindiVoice = availableVoices.find(v => v.lang === "hi-IN" || v.name.toLowerCase().includes("hindi"));
-      if (hindiVoice) utter.voice = hindiVoice;
-
-      utter.onstart = () => { 
-        mouth.style.display = "block"; 
-        skull.classList.add("speaking"); 
-      };
-      utter.onend = () => { 
-        mouth.style.display = "none"; 
-        skull.classList.remove("speaking"); 
-      };
-
-      speechSynthesis.speak(utter);
-    }
-
-    // 🧠 Handle Commands
-    function handleCommand(command) {
-      if (command.includes("joke")) {
-        const jokes = [
-          "एक कंकाल पार्टी में क्यों नहीं गया? क्योंकि उसके पास दिल नहीं था!",
-          "कंप्यूटर डॉक्टर के पास क्यों गया? क्योंकि उसे बहुत सारे बाइट्स हो रहे थे!",
-          "भूत को नौकरी क्यों नहीं मिली? क्योंकि उसका अनुभव पारदर्शी था!"
-        ];
-        speak(jokes[Math.floor(Math.random() * jokes.length)]);
-      } 
-      else if (command.match(/your name|what is your name/)) {
-        speak("मेरा नाम अराइज़ है। मैं एक वॉइस असिस्टेंट हूँ।");
-      } 
-      else if (command.match(/who made|created you/)) {
-        speak("मुझे एक डिवेलपर ने बनाया है, जो बहुत स्मार्ट है।");
-      } 
-      else if (command.match(/what can you do|about yourself/)) {
-        speak("मैं आपकी आवाज़ सुन सकता हूँ, आपको जोक्स सुना सकता हूँ, और जानकारी भी दे सकता हूँ।");
-      } 
-      else if (command.match(/time|samay/)) {
-        const now = new Date();
-        speak(`अभी समय है ${now.getHours()} बजकर ${now.getMinutes()} मिनट।`);
-      }
-      else if (command.match(/who is|what is/)) {
-        let query = command.replace("who is", "").replace("what is", "").trim();
-        if (!query || query.length < 2) {
-          speak("कृपया थोड़ा और स्पष्ट बोलें।");
-          return;
-        }
-        statusText.innerText = "Searching Wikipedia for " + query;
-        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query.replace(/ /g, "_"))}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.extract) {
-              speak(data.extract);
-            } else {
-              speak("माफ़ कीजिए, मुझे जानकारी नहीं मिली।");
-            }
-          })
-          .catch(() => speak("कुछ गड़बड़ हो गई।"));
-      } 
-      else {
-        speak("मैं समझ नहीं पाया। कृपया दोबारा बोलें।");
-      }
-    }
-
-    // 🎧 Recognition Events
-    recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-      console.log("Heard:", transcript);
-
-      if (!isActivated && transcript.includes("arise")) {
-        isActivated = true;
-        statusText.innerText = "Activated 👻 Waiting for your command...";
-        speak("मैं यहाँ हूँ। आप क्या जानना चाहते हैं?");
-      } else if (isActivated) {
-        handleCommand(transcript);
-        isActivated = false;
-        statusText.innerText = "Say 'ARISE' to activate again...";
-      }
-    };
-
-    recognition.onerror = (e) => {
-      statusText.innerText = "Recognition Error: " + e.error;
-      console.error(e);
-    };
-
-    recognition.onend = () => {
-      // Restart only if still active
-      if (isActivated) recognition.start();
-    };
-
-    function startAssistant() {
-      if (!window.isSecureContext) {
-        alert("⚠️ कृपया HTTPS या localhost से इस पेज को खोलें।");
-        statusText.innerText = "HTTPS या localhost आवश्यक है।";
-        return;
-      }
-
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-          recognition.start();
-          statusText.innerText = "Listening... Say 'ARISE'";
-        })
-        .catch((err) => {
-          console.error("Microphone access denied:", err);
-          statusText.innerText = "Microphone access denied.";
-          speak("मुझे माइक की अनुमति चाहिए।");
-        });
-    }
+    document.getElementById("btn").addEventListener("click", function() {
+      document.getElementById("btn").style.display = "none";
+      document.getElementById("reveal").style.display = "block";
+    });
   </script>
 </body>
 </html>
